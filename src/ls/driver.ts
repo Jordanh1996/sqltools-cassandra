@@ -1,8 +1,11 @@
 import * as CassandraLib from 'cassandra-driver';
 import AbstractDriver from '@sqltools/base-driver';
+import get from 'lodash/get';
 import Queries from './queries';
 import { IConnectionDriver, MConnectionExplorer, NSDatabase, ContextValue, Arg0, IQueryOptions } from '@sqltools/types';
 import { v4 as generateId } from 'uuid';
+import { CASSANDRA_DRIVER_DEFAULT_FETCH_MAX_SIZE, MAX_ADDITIONAL_COUNTING_TIME } from '../constants';
+import { sleep } from './utils';
 
 interface CQLBatch {
   query: string,
@@ -298,19 +301,19 @@ export default class CqlDriver
     const { limit, page = 0 } = opt;
     const offset = page * limit;
     const params = { ...opt, table, offset, limit: offset + limit };
-      const [ records, totalResult ] = await (Promise.all([
-        this.singleQuery(this.queries.fetchRecords(params), opt),
-        this.singleQuery(this.queries.countRecords(params), opt),
-      ]));
-      records.baseQuery = this.queries.fetchRecords.raw;
-      records.pageSize = limit;
-      records.page = page;
-      records.total = Number((totalResult.results[0] as any).count.low);
-      records.queryType = 'showRecords';
-      records.queryParams = table;
+    const recordsP = this.singleQuery(this.queries.fetchRecords(params), opt);
+    const countP = this.singleQuery(this.queries.countRecords(params), opt);
+    const records = await recordsP;
+    records.baseQuery = this.queries.fetchRecords.raw;
+    records.pageSize = limit;
+    records.page = page;
+    records.queryType = 'showRecords';
+    records.queryParams = table;
+    records.results = records.results.slice(offset);
 
-      records.results = records.results.slice(offset);
+    const countResult = await Promise.race([countP, sleep(MAX_ADDITIONAL_COUNTING_TIME)]);
+    records.total = get(countResult, ['results', '0', 'count', 'low']) || CASSANDRA_DRIVER_DEFAULT_FETCH_MAX_SIZE;
 
-      return [records];
+    return [records];
   }
 }
