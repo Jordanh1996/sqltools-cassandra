@@ -1,6 +1,6 @@
 {
   "name": "sqltools-cassandra",
-  "displayName": "Cassandra for SQLTools",
+  "displayName": "SQLTools Cassandra",
   "description": "Cassandra Driver for SQLTools",
   "version": "0.2.0",
   "engines": {
