@@ -3,21 +3,22 @@ import queryFactory from '@sqltools/base-driver/dist/lib/factory';
 
 // Cassandra >= 3.0
 const queries = {
-  // TODO
   describeTable: queryFactory`
     SELECT * FROM system_schema.tables
-    WHERE keyspace_name = ':keyspace'
-    AND table_name = ':table'
+    WHERE keyspace_name = '${p => p.database}'
+    AND table_name = '${p => p.label}'
     ` as IBaseQueries['describeTable'],
   fetchColumns: queryFactory`
     SELECT keyspace_name, table_name,
     column_name, kind, type
     FROM system_schema.columns
     ` as IBaseQueries['fetchColumns'],
-  // TODO
   fetchRecords: queryFactory`
-    SELECT * FROM :keyspace.:table LIMIT :limit
+    SELECT * FROM ${p => p.table.schema}.${p => p.table.label} LIMIT ${p => p.limit}
     ` as IBaseQueries['fetchRecords'],
+  fetchKeyspaces: queryFactory`
+    SELECT keyspace_name FROM system_schema.keyspaces;
+    ` as IBaseQueries['fetchSchemas'],
   fetchTables: queryFactory`
     SELECT keyspace_name, table_name
     FROM system_schema.tables;
@@ -30,8 +31,9 @@ const queries = {
     return_type, body
     FROM system_schema.functions
     ` as IBaseQueries['fetchFunctions'],
-  // TODO
-  countRecords: null,
+  countRecords: queryFactory`
+    SELECT COUNT(*) FROM ${p => p.table.schema}.${p => p.table.label}
+    ` as IBaseQueries['countRecords'],
   // TODO
   searchTables: null,
   // TODO
@@ -40,11 +42,10 @@ const queries = {
 
 // Cassandra < 3.0
 const legacyQueries = {
-  // TODO
   describeTable: queryFactory`
     SELECT * FROM system.schema_columnfamilies
-    WHERE keyspace_name = ':keyspace'
-    AND columnfamily_name = ':table'
+    WHERE keyspace_name = '${p => p.database}'
+    AND columnfamily_name = '${p => p.label}'
     ` as IBaseQueries['describeTable'],
   fetchColumns: queryFactory`
     SELECT keyspace_name, columnfamily_name AS table_name,
@@ -53,8 +54,11 @@ const legacyQueries = {
     ` as IBaseQueries['fetchColumns'],
   // TODO
   fetchRecords: queryFactory`
-    SELECT * FROM :keyspace.:table LIMIT :limit
+    SELECT * FROM ${p => p.table.schema}.${p => p.table.label} LIMIT ${p => p.limit}
     ` as IBaseQueries['fetchRecords'],
+  fetchKeyspaces: queryFactory`
+    SELECT keyspace_name FROM system.schema_keyspaces;
+    ` as IBaseQueries['fetchSchemas'],
   fetchTables: queryFactory`
     SELECT keyspace_name, columnfamily_name AS table_name
     FROM system.schema_columnfamilies;
@@ -67,8 +71,9 @@ const legacyQueries = {
     return_type, body
     FROM system.schema_functions
     ` as IBaseQueries['fetchFunctions'],
-  // TODO
-  countRecords: null,
+  countRecords: queryFactory`
+    SELECT COUNT(*) FROM ${p => p.table.schema}.${p => p.table.label}
+    ` as IBaseQueries['countRecords'],
   // TODO
   searchTables: null,
   // TODO

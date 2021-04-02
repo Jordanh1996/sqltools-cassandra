@@ -49,37 +49,34 @@ export async function activate(extContext: ExtensionContext): Promise<IDriverExt
   return {
     driverName,
     parseBeforeSaveConnection: ({ connInfo }) => {
-      /**
-       * This hook is called before saving the connecton using the assistant
-       * so you can do any transformations before saving it to disk.active
-       * EG: relative file path transformation, string manipulation etc
-       * Below is the exmaple for SQLite, where we save the DB path relative to workspace
-       * and later we transform it back to absolute before editing
-       */
-      // if (path.isAbsolute(connInfo.database)) {
-      //   const databaseUri = Uri.file(connInfo.database);
-      //   const dbWorkspace = workspace.getWorkspaceFolder(databaseUri);
-      //   if (dbWorkspace) {
-      //     connInfo.database = `\$\{workspaceFolder:${dbWorkspace.name}\}/${workspace.asRelativePath(connInfo.database, false)}`;
-      //   }
-      // }
+      const propsToRemove = ['id', 'usePassword'];
+      if (connInfo.usePassword) {
+        if (connInfo.usePassword.toString().toLowerCase().includes('ask')) {
+          propsToRemove.push('password');
+        } else if (connInfo.usePassword.toString().toLowerCase().includes('empty')) {
+          connInfo.password = '';
+          propsToRemove.push('askForPassword');
+        } else if(connInfo.usePassword.toString().toLowerCase().includes('save')) {
+          propsToRemove.push('askForPassword');
+        }
+      }
+      propsToRemove.forEach(p => delete connInfo[p]);
+
       return connInfo;
     },
     parseBeforeEditConnection: ({ connInfo }) => {
-      /**
-       * This hook is called before editing the connecton using the assistant
-       * so you can do any transformations before editing it.
-       * EG: absolute file path transformation, string manipulation etc
-       * Below is the exmaple for SQLite, where we use relative path to save,
-       * but we transform to asolute before editing
-       */
-      // if (!path.isAbsolute(connInfo.database) && /\$\{workspaceFolder:(.+)}/g.test(connInfo.database)) {
-      //   const workspaceName = connInfo.database.match(/\$\{workspaceFolder:(.+)}/)[1];
-      //   const dbWorkspace = workspace.workspaceFolders.find(w => w.name === workspaceName);
-      //   if (dbWorkspace)
-      //     connInfo.database = path.resolve(dbWorkspace.uri.fsPath, connInfo.database.replace(/\$\{workspaceFolder:(.+)}/g, './'));
-      // }
-      return connInfo;
+      const formData: typeof connInfo = {
+        ...connInfo,
+      };
+
+      if (connInfo.askForPassword) {
+        formData.usePassword = 'Ask on connect';
+        delete formData.password;
+      } else if (typeof connInfo.password === 'string') {
+        delete formData.askForPassword;
+        formData.usePassword = connInfo.password ? 'Save password' : 'Use empty password';
+      }
+      return formData;
     },
     driverAliases: DRIVER_ALIASES,
   }

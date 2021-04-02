@@ -1,36 +1,8 @@
 import * as CassandraLib from 'cassandra-driver';
 import AbstractDriver from '@sqltools/base-driver';
 import Queries from './queries';
-import { IConnectionDriver, MConnectionExplorer, NSDatabase, ContextValue, Arg0 } from '@sqltools/types';
+import { IConnectionDriver, MConnectionExplorer, NSDatabase, ContextValue, Arg0, IQueryOptions } from '@sqltools/types';
 import { v4 as generateId } from 'uuid';
-// import { parse as queryParse } from '@sqltools/util/query';
-
-/**
- * MOCKED DB DRIVER
- * THIS IS JUST AN EXAMPLE AND THE LINES BELOW SHOUDL BE REMOVED!
- */
-// import fakeDbLib from './mylib'; // this is what you should do
-const fakeDbLib = {
-  open: () => Promise.resolve(fakeDbLib),
-  query: (..._args: any[]) => {
-    const nResults = parseInt((Math.random() * 1000).toFixed(0));
-    const nCols = parseInt((Math.random() * 100).toFixed(0));
-    const colNames = [...new Array(nCols)].map((_, index) => `col${index}`);
-    const generateRow = () => {
-      const row = {};
-      colNames.forEach(c => {
-        row[c] = Math.random() * 1000;
-      });
-      return row;
-    }
-    const results = [...new Array(nResults)].map(generateRow);
-    return Promise.resolve([results]);
-  },
-  close: () => Promise.resolve(),
-};
-
-
-/* LINES ABOVE CAN BE REMOVED */
 
 interface CQLBatch {
   query: string,
@@ -193,7 +165,6 @@ export default class CqlDriver
     await this.query('SELECT now() FROM system.local', {});
   }
 
-  // TODO
   /**
    * This method is a helper to generate the connection explorer tree.
    * it gets the child items based on current item
@@ -202,185 +173,38 @@ export default class CqlDriver
     switch (item.type) {
       case ContextValue.CONNECTION:
       case ContextValue.CONNECTED_CONNECTION:
-        return <MConnectionExplorer.IChildItem[]>[
-          { label: 'Tables', type: ContextValue.RESOURCE_GROUP, iconId: 'folder', childType: ContextValue.TABLE },
-        ];
+        return <MConnectionExplorer.IChildItem[]>await this.getKeyspaces();
+      case ContextValue.SCHEMA:
+        return <MConnectionExplorer.IChildItem[]>await this.getTables(<NSDatabase.ISchema>item);
       case ContextValue.TABLE:
-        let i = 0;
-        return <NSDatabase.IColumn[]>[{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        },{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        },{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        },{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        },{
-          database: 'fakedb',
-          label: `column${i++}`,
-          type: ContextValue.COLUMN,
-          dataType: 'faketype',
-          schema: 'fakeschema',
-          childType: ContextValue.NO_CHILD,
-          isNullable: false,
-          iconName: 'column',
-          table: parent,
-        }];
-      case ContextValue.RESOURCE_GROUP:
-        return this.getChildrenForGroup({ item, parent });
+        return <NSDatabase.IColumn[]>await this.getColumns(<NSDatabase.ITable>item);
     }
     return [];
   }
 
-  // TODO
-  /**
-   * This method is a helper to generate the connection explorer tree.
-   * It gets the child based on child types
-   */
-  private async getChildrenForGroup({ parent, item }: Arg0<IConnectionDriver['getChildrenForItem']>) {
-    console.log({ item, parent });
-    switch (item.childType) {
-      case ContextValue.TABLE:
-        let i = 0;
-        return <MConnectionExplorer.IChildItem[]>[{
-          database: 'fakedb',
-          label: `${item.childType}${i++}`,
-          type: item.childType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        },{
-          database: 'fakedb',
-          label: `${item.childType}${i++}`,
-          type: item.childType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        },
-        {
-          database: 'fakedb',
-          label: `${item.childType}${i++}`,
-          type: item.childType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        }];
-    }
-    return [];
-  }
-
-  // TODO
   /**
    * This method is a helper for intellisense and quick picks.
    */
-  public async searchItems(itemType: ContextValue, search: string, _extraParams: any = {}): Promise<NSDatabase.SearchableItem[]> {
+  public async searchItems(itemType: ContextValue, search: string, { tables }: any = {}): Promise<NSDatabase.SearchableItem[]> {
     switch (itemType) {
       case ContextValue.TABLE:
-        let j = 0;
-        return [{
-          database: 'fakedb',
-          label: `${search || 'table'}${j++}`,
-          type: itemType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        },{
-          database: 'fakedb',
-          label: `${search || 'table'}${j++}`,
-          type: itemType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        },
-        {
-          database: 'fakedb',
-          label: `${search || 'table'}${j++}`,
-          type: itemType,
-          schema: 'fakeschema',
-          childType: ContextValue.COLUMN,
-        }]
+        return this.getTables();
       case ContextValue.COLUMN:
-        let i = 0;
-        return [
-          {
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          },{
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          },{
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          },{
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
-          },{
-            database: 'fakedb',
-            label: `${search || 'column'}${i++}`,
-            type: ContextValue.COLUMN,
-            dataType: 'faketype',
-            schema: 'fakeschema',
-            childType: ContextValue.NO_CHILD,
-            isNullable: false,
-            iconName: 'column',
-            table: 'fakeTable'
+        const columns = await this.getColumns();
+
+        if (!tables.length) return columns;
+
+        const results = {};
+
+        for (const column of columns) {
+          for (const table of tables) {
+            if (table.database && column.schema !== table.database) continue;
+            if (table.label && column.table !== table.label) continue;
+            results[column.label] = column;
           }
-        ];
+        }
+
+        return Object.values(results);
     }
     return [];
   }
@@ -389,90 +213,104 @@ export default class CqlDriver
   public getStaticCompletions: IConnectionDriver['getStaticCompletions'] = async () => {
     return {};
   }
+
+  public async getKeyspaces(): Promise<NSDatabase.ISchema[]> {
+    const [queryResults] = await this.query<any>(this.queries.fetchKeyspaces.raw, {});
+
+    return queryResults.results.map((obj: any) => ({
+      label: obj.keyspace_name,
+      schema: obj.keyspace_name,
+      database: obj.keyspace_name,
+      type: ContextValue.SCHEMA,
+      iconId: 'group-by-ref-type',
+      childType: ContextValue.TABLE
+    }));
+  }
+
+  public async getTables(parent?: NSDatabase.ISchema): Promise<NSDatabase.ITable[]> {
+    const [queryResults, columnsResults] = await this.query<any>(this.queries.fetchTables.raw, {});
+
+    return queryResults.results
+      .filter((obj: any) => !parent || parent.label === obj.keyspace_name)
+      .map((obj: any) => ({
+        label: obj.table_name,
+        isView: false,
+        schema: obj.keyspace_name,
+        database: obj.keyspace_name,
+        type: ContextValue.TABLE,
+        childType: ContextValue.COLUMN,
+      }));
+  }
+  
+  public async getColumns(parent?: NSDatabase.ITable): Promise<NSDatabase.IColumn[]> {
+    const [queryResults] = await this.query<any>(this.queries.fetchColumns.raw, {});
+
+    return queryResults.results
+      .filter((obj: any) => !parent || parent.label === obj.table_name)
+      .map((obj: any) => ({
+        label: obj.column_name,
+        schema: obj.keyspace_name,
+        database: obj.keyspace_name,
+        type: ContextValue.COLUMN,
+        childType: ContextValue.NO_CHILD,
+        dataType: this.isLegacy ? this.mapLegacyTypeToRegularType(obj.type) : obj.type,
+        isNullable: obj.kind === 'regular',
+        isPk: obj.kind !== 'regular',
+        isPartitionKey: obj.kind === 'partition_key',
+        table: obj.table_name,
+        // tree: [obj.keyspace_name, 'tables', obj.table_name, obj.column_name].join(TREE_SEP)
+      }));
+  }
+  
+  /**
+   * Turns a legacy Cassandra validator into a human-readable type. Examples:
+   * - 'org.apache.cassandra.db.marshal.Int32Type' becomes 'Int32'
+   * - 'org.apache.cassandra.db.marshal.SetType(org.apache.cassandra.db.marshal.UTF8Type)'
+   *   becomes 'Set(UTF8)'
+   * @param legacyType
+   */
+  private mapLegacyTypeToRegularType(legacyType: string): string {
+    return legacyType.replace(/\b\w+\.|Type\b/g, '');
+  }
+  
+  // public async getFunctions(): Promise<NSDatabase.IFunction[]> {
+  //   const [queryResults] = await this.query(this.queries.fetchFunctions.raw, {});
+  //   return queryResults.results.map((obj: any) => {
+  //     const func: NSDatabase.IFunction = {
+  //       name: obj.function_name,
+  //       schema: obj.keyspace_name,
+  //       database: '',
+  //       signature: obj.argument_types ? `(${obj.argument_types.join(',')})` : '()',
+  //       args: obj.argument_names,
+  //       resultType: obj.return_type,
+  //       source: obj.body,
+  //       tree: [obj.keyspace_name, 'functions', obj.function_name].join(TREE_SEP),
+  //     };
+  //     return func;
+  //   });
+  // }
+  
+  public async describeTable(table: NSDatabase.ITable) {
+    return this.query(this.queries.describeTable(table), {});
+  }
+  
+  public async showRecords(table: NSDatabase.ITable, opt: IQueryOptions & { limit: number, page?: number }) {
+    const { limit, page = 0 } = opt;
+    const offset = page * limit;
+    const params = { ...opt, table, offset, limit: offset + limit };
+      const [ records, totalResult ] = await (Promise.all([
+        this.singleQuery(this.queries.fetchRecords(params), opt),
+        this.singleQuery(this.queries.countRecords(params), opt),
+      ]));
+      records.baseQuery = this.queries.fetchRecords.raw;
+      records.pageSize = limit;
+      records.page = page;
+      records.total = Number((totalResult.results[0] as any).count.low);
+      records.queryType = 'showRecords';
+      records.queryParams = table;
+
+      records.results = records.results.slice(offset);
+
+      return [records];
+  }
 }
-
-/* Copied queries from original codebase */
-
-// public async getTables(): Promise<NSDatabase.ITable[]> {
-//   const [queryResults, columnsResults] = await this.query(this.queries.fetchTables);
-//   const numberOfColumnsMap: {string: {string: number}} = columnsResults.results
-//     .reduce((prev, curr) => prev.concat(curr), [])
-//     .reduce((acc: {string: {string: number}}, obj: any) =>
-//   {
-//     if (typeof acc[obj.keyspace_name] === 'undefined') {
-//       acc[obj.keyspace_name] = {};
-//     }
-//     if (typeof acc[obj.keyspace_name][obj.table_name] === 'undefined') {
-//       acc[obj.keyspace_name][obj.table_name] = 1;
-//     } else {
-//       acc[obj.keyspace_name][obj.table_name] += 1;
-//     }
-//     return acc;
-//   }, {});
-//   return queryResults.results.reduce((prev, curr) => prev.concat(curr), []).map((obj: any) => {
-//     const table: NSDatabase.ITable = {
-//       name: obj.table_name,
-//       isView: false,
-//       tableSchema: obj.keyspace_name,
-//       numberOfColumns: numberOfColumnsMap[obj.keyspace_name] &&
-//         numberOfColumnsMap[obj.keyspace_name][obj.table_name],
-//       tree: [obj.keyspace_name, 'tables', obj.table_name].join(TREE_SEP)
-//     };
-//     return table;
-//   });
-// }
-
-// public async getColumns(): Promise<NSDatabase.IColumn[]> {
-//   const [queryResults] = await this.query(this.queries.fetchColumns);
-//   return queryResults.results.reduce((prev, curr) => prev.concat(curr), []).map((obj: any) => {
-//     const column: NSDatabase.IColumn = {
-//       columnName: obj.column_name,
-//       tableName: obj.table_name,
-//       type: this.isLegacy ? this.mapLegacyTypeToRegularType(obj.type) : obj.type,
-//       isNullable: obj.kind === 'regular',
-//       isPk: obj.kind !== 'regular',
-//       isPartitionKey: obj.kind === 'partition_key',
-//       tableSchema: obj.keyspace_name,
-//       tree: [obj.keyspace_name, 'tables', obj.table_name, obj.column_name].join(TREE_SEP)
-//     };
-//     return column;
-//   });
-// }
-
-// /**
-//  * Turns a legacy Cassandra validator into a human-readable type. Examples:
-//  * - 'org.apache.cassandra.db.marshal.Int32Type' becomes 'Int32'
-//  * - 'org.apache.cassandra.db.marshal.SetType(org.apache.cassandra.db.marshal.UTF8Type)'
-//  *   becomes 'Set(UTF8)'
-//  * @param legacyType
-//  */
-// private mapLegacyTypeToRegularType(legacyType: string): string {
-//   return legacyType.replace(/\b\w+\.|Type\b/g, '');
-// }
-
-// public async getFunctions(): Promise<NSDatabase.IFunction[]> {
-//   const [queryResults] = await this.query(this.queries.fetchFunctions);
-//   return queryResults.results.reduce((prev, curr) => prev.concat(curr), []).map((obj: any) => {
-//     const func: NSDatabase.IFunction = {
-//       name: obj.function_name,
-//       schema: obj.keyspace_name,
-//       database: '',
-//       signature: obj.argument_types ? `(${obj.argument_types.join(',')})` : '()',
-//       args: obj.argument_names,
-//       resultType: obj.return_type,
-//       source: obj.body,
-//       tree: [obj.keyspace_name, 'functions', obj.function_name].join(TREE_SEP),
-//     };
-//     return func;
-//   });
-// }
-
-// public async describeTable(prefixedTable: string) {
-//   const [keyspace, table] = prefixedTable.split('.');
-//   return this.query(Utils.replacer(this.queries.describeTable, {keyspace, table}));
-// }
-
-// public async showRecords(prefixedTable: string, limit: number) {
-//   const [keyspace, table] = prefixedTable.split('.');
-//   return this.query(Utils.replacer(this.queries.fetchRecords, {keyspace, table, limit}));
-// }

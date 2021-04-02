@@ -23,10 +23,15 @@
       "type": "string",
       "minLength": 1
     },
-    "askForPassword": {
-      "title": "Ask for password?",
-      "type": "boolean",
-      "default": false
+    "usePassword": {
+      "title": "Use password",
+      "type": "string",
+      "enum": [
+        "Ask on connect",
+        "Use empty password",
+        "Save password"
+      ],
+      "default": "Ask on connect"
     },
     "password": {
       "title": "Password",
@@ -39,21 +44,50 @@
     "port": { "$ref": "#/definitions/port" },
     "database": { "$ref": "#/definitions/database" },
     "username": { "$ref": "#/definitions/username" },
-    "askForPassword": { "$ref": "#/definitions/askForPassword" }
+    "usePassword": { "$ref": "#/definitions/usePassword" }
   },
-  "required": ["server", "port", "username"],
   "dependencies": {
-    "askForPassword": {
+    "usePassword": {
       "oneOf": [
-        { "properties": { "askForPassword": { "enum": [true] } } },
         {
           "properties": {
-            "askForPassword": { "enum": [false] },
-            "password": { "$ref": "#/definitions/password" }
+            "usePassword": {
+              "enum": [
+                "Ask on connect"
+              ]
           },
-          "required": ["password"]
+            "askForPassword": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        {
+          "properties": {
+            "usePassword": {
+              "enum": [
+                "Use empty password"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "usePassword": {
+              "enum": [
+                "Save password"
+              ]
+            },
+            "password": {
+              "$ref": "#/definitions/password"
+            }
+          },
+          "required": [
+            "password"
+          ]
         }
       ]
     }
-  }
+  },
+  "required": ["server", "port"]
 }

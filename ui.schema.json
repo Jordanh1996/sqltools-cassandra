@@ -1,5 +1,5 @@
 {
-  "ui:order": ["server", "port", "database", "username", "askForPassword", "password"],
+  "ui:order": ["server", "port", "database", "username", "usePassword", "password"],
   "server": { "ui:help": "You can enter multiple hosts separated by commas, eg.: 127.0.0.1,localhost,::1" },
   "password": { "ui:widget": "password" }
 }
