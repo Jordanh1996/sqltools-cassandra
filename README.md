@@ -1,20 +1,11 @@
-# Cassandra Driver for SQLTools
+# SQLTools Cassandra Driver
 
-## Creating icon
+Cassandra driver for VS Code SQLTools.
 
-PNG Images
-Size: 64x64px
-Default Icon: Opacity 100%, no margins and paddings
-Active icon: Opacity 100%, no margins and paddings, green (#00FF00) circle 24x24 bottom right
-Inactive icon: Opacity 50%, no margins and paddings
+This driver supports executing queries and DML statements on Cassandra databases, as well as browsing through the tables of a database.
 
-## Creating connectino schema for the assistant
+## Installation
 
-We are using `@rjsf/core` to render the forms, so in order to add you driver to the connection assistant,
-edit `connection.schema.json` and `ui.schema.json`.
-
-See https://react-jsonschema-form.readthedocs.io/en/latest/ for more instructions.
-
-## Publish the driver
-
-See https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+* First make sure you have the [SQL Tools Extension](https://marketplace.visualstudio.com/items?itemName=mtxr.sqltools) intalled on your VSCode
+* Install the [Cassandra Driver Extension](https://marketplace.visualstudio.com/items?itemName=JordanHury.sqltools-cassandra) from the VSCode Marketplace
+* You can now add a connection to a Cassandra database from SQLTools
